@@ -4,19 +4,26 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
+#include "pipes.h"
+#include "jobs.h"
+
 #define MAX_LINE 1024
 #define MAX_ARGS 64
-#define MAX_CMDS 20
 
 int main() {
     char line[MAX_LINE];
     char cwd[1024];
 
+    configurar_sigchld();
+
     while (1) {
+
+        revisar_hijos();
+
         if (getcwd(cwd, sizeof(cwd)) != NULL) {
             printf("miShell:%s$ ", cwd);
         } else {
-            perror("Error al obtener directorio");
+            perror("getcwd");
         }
 
         fflush(stdout);
@@ -30,76 +37,77 @@ int main() {
             break;
         }
 
-        char *comandos[MAX_CMDS];
-        int cantidad = 0;
+        int background = 0;
+        size_t len = strlen(line);
 
-        char *parte = strtok(line, "|");
+        while (len > 0 &&
+              (line[len - 1] == '\n' ||
+               line[len - 1] == ' ' ||
+               line[len - 1] == '\t')) {
 
-        while (parte != NULL && cantidad < MAX_CMDS) {
-            comandos[cantidad] = parte;
-            cantidad++;
-            parte = strtok(NULL, "|");
+            line[--len] = '\0';
         }
 
-        int pipes[MAX_CMDS - 1][2];
-        pid_t pids[MAX_CMDS];
+        if (len == 0) {
+            continue;
+        }
 
-        for (int i = 0; i < cantidad - 1; i++) {
-            if (pipe(pipes[i]) < 0) {
-                perror("Error al crear pipe");
-                exit(EXIT_FAILURE);
+        if (line[len - 1] == '&') {
+            background = 1;
+            line[--len] = '\0';
+
+            while (len > 0 &&
+                  (line[len - 1] == ' ' ||
+                   line[len - 1] == '\t')) {
+
+                line[--len] = '\0';
             }
         }
 
-        for (int i = 0; i < cantidad; i++) {
-            pids[i] = fork();
+        char comando_original[MAX_LINE];
+        strcpy(comando_original, line);
 
-            if (pids[i] < 0) {
-                perror("Error fatal de fork");
-                exit(EXIT_FAILURE);
-            }
+        int tiene_pipe = strchr(line, '|') != NULL;
 
-            if (pids[i] == 0) {
-                if (i > 0) {
-                    dup2(pipes[i - 1][0], STDIN_FILENO);
-                }
-
-                if (i < cantidad - 1) {
-                    dup2(pipes[i][1], STDOUT_FILENO);
-                }
-
-                for (int j = 0; j < cantidad - 1; j++) {
-                    close(pipes[j][0]);
-                    close(pipes[j][1]);
-                }
-
-                char *args[MAX_ARGS];
-                int j = 0;
-
-                args[j] = strtok(comandos[i], " \t\n");
-
-                while (args[j] != NULL && j < MAX_ARGS - 1) {
-                    j++;
-                    args[j] = strtok(NULL, " \t\n");
-                }
-
-                if (args[0] != NULL) {
-                    execvp(args[0], args);
-                    perror("Comando no encontrado");
-                    exit(EXIT_FAILURE);
-                }
-
-                exit(EXIT_SUCCESS);
-            }
+        if (tiene_pipe) {
+            ejecutar_pipeline(line, background, comando_original);
+            continue;
         }
 
-        for (int i = 0; i < cantidad - 1; i++) {
-            close(pipes[i][0]);
-            close(pipes[i][1]);
+        char *args[MAX_ARGS];
+        int i = 0;
+
+        args[i] = strtok(line, " \t\n");
+
+        while (args[i] != NULL && i < MAX_ARGS - 1) {
+            i++;
+            args[i] = strtok(NULL, " \t\n");
         }
 
-        for (int i = 0; i < cantidad; i++) {
-            waitpid(pids[i], NULL, 0);
+        if (args[0] == NULL) {
+            continue;
+        }
+
+        pid_t pid = fork();
+
+        if (pid < 0) {
+            perror("fork");
+            exit(EXIT_FAILURE);
+        }
+
+        if (pid == 0) {
+            execvp(args[0], args);
+            perror(args[0]);
+            exit(EXIT_FAILURE);
+        }
+
+        if (background) {
+            pid_t pids[1];
+            pids[0] = pid;
+
+            agregar_job(pids, 1, comando_original);
+        } else {
+            waitpid(pid, NULL, 0);
         }
     }
 
