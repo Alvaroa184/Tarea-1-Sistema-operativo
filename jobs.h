@@ -19,5 +19,5 @@ typedef struct {
 void configurar_sigchld();
 void agregar_job(pid_t pids[], int cantidad, char *comando);
 void revisar_hijos();
-
+void imprimir_jobs();
 #endif

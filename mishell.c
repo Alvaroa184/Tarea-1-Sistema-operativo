@@ -3,9 +3,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <fcntl.h> 
 
 #include "pipes.h"
 #include "jobs.h"
+#include "pmon.h"
 
 #define MAX_LINE 1024
 #define MAX_ARGS 64
@@ -88,6 +90,41 @@ int main() {
             continue;
         }
 
+        // R2
+        if (strcmp(args[0], "exit") == 0) {
+            int status = 0;
+            if (args[1] != NULL) {
+                status = atoi(args[1]);
+            }
+            exit(status);
+        }
+
+        if (strcmp(args[0], "cd") == 0) {
+            char *dir = args[1];
+            if (dir == NULL) {
+                dir = getenv("HOME");
+            }
+            if (chdir(dir) != 0) {
+                perror("cd");
+            }
+            continue; 
+        }
+
+        if (strcmp(args[0], "jobs") == 0) {
+            imprimir_jobs(); 
+            continue;
+        }
+
+        if (strcmp(args[0], "pmon") == 0) {
+            int segundos = 2;
+            if (args[1] != NULL) {
+                segundos = atoi(args[1]);
+            }
+            ejecutar_pmon(segundos); 
+            continue;
+        }
+        // FIN R2
+
         pid_t pid = fork();
 
         if (pid < 0) {
@@ -96,9 +133,42 @@ int main() {
         }
 
         if (pid == 0) {
-            execvp(args[0], args);
-            perror(args[0]);
+            // R3
+            char *exec_args[MAX_ARGS];
+            int k = 0;
+            
+            for (int j = 0; args[j] != NULL; j++) {
+                if (strcmp(args[j], "<") == 0 && args[j+1] != NULL) {
+                    int fd = open(args[j+1], O_RDONLY);
+                    if (fd < 0) { perror("open <"); exit(EXIT_FAILURE); }
+                    dup2(fd, STDIN_FILENO);
+                    close(fd);
+                    j++; 
+                } 
+                else if (strcmp(args[j], ">") == 0 && args[j+1] != NULL) {
+                    int fd = open(args[j+1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                    if (fd < 0) { perror("open >"); exit(EXIT_FAILURE); }
+                    dup2(fd, STDOUT_FILENO);
+                    close(fd);
+                    j++; 
+                } 
+                else if (strcmp(args[j], ">>") == 0 && args[j+1] != NULL) {
+                    int fd = open(args[j+1], O_WRONLY | O_CREAT | O_APPEND, 0644);
+                    if (fd < 0) { perror("open >>"); exit(EXIT_FAILURE); }
+                    dup2(fd, STDOUT_FILENO);
+                    close(fd);
+                    j++; 
+                } 
+                else {
+                    exec_args[k++] = args[j];
+                }
+            }
+            exec_args[k] = NULL;
+
+            execvp(exec_args[0], exec_args);
+            perror(exec_args[0]);
             exit(EXIT_FAILURE);
+            // FIN R3
         }
 
         if (background) {

@@ -83,3 +83,11 @@ void revisar_hijos() {
         }
     }
 }
+
+void imprimir_jobs() {
+    for (int i = 0; i < MAX_JOBS; i++) {
+        if (jobs[i].activo) {
+            printf("[%d] Ejecutando\t%s\n", jobs[i].id, jobs[i].comando);
+        }
+    }
+}
