@@ -8,6 +8,7 @@
 #include "pipes.h"
 #include "jobs.h"
 #include "pmon.h"
+#include "signals.h"
 
 #define MAX_LINE 1024
 #define MAX_ARGS 64
@@ -17,6 +18,7 @@ int main() {
     char cwd[1024];
 
     configurar_sigchld();
+    configurar_senales_shell();
 
     while (1) {
 
@@ -133,6 +135,9 @@ int main() {
         }
 
         if (pid == 0) {
+            if (!background){
+                restaurar_senales_foreground();
+            }
             // R3
             char *exec_args[MAX_ARGS];
             int k = 0;

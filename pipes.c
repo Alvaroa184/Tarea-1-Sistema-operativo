@@ -6,6 +6,7 @@
 
 #include "pipes.h"
 #include "jobs.h"
+#include "signals.h"
 
 void ejecutar_pipeline(char *line, int background, char *comando_original) {
     char *comandos[MAX_CMDS];
@@ -38,7 +39,9 @@ void ejecutar_pipeline(char *line, int background, char *comando_original) {
         }
 
         if (pids[i] == 0) {
-
+            if(!background){
+                restaurar_senales_foreground();
+            }
             if (i > 0) {
                 dup2(pipes[i - 1][0], STDIN_FILENO);
             }
