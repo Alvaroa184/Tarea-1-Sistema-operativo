@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 
 #include "pipes.h"
 #include "jobs.h"
@@ -65,9 +66,41 @@ void ejecutar_pipeline(char *line, int background, char *comando_original) {
                 args[j] = strtok(NULL, " \t\n");
             }
 
-            if (args[0] != NULL) {
-                execvp(args[0], args);
-                perror(args[0]);
+            char *exec_args[MAX_ARGS];
+            int k = 0;
+
+            for (int j = 0; args[j] != NULL; j++) {
+                if (strcmp(args[j], "<") == 0 && args[j + 1] != NULL) {
+                    int fd = open(args[j + 1], O_RDONLY);
+                    if (fd < 0) { perror("open <"); exit(EXIT_FAILURE); }
+                    dup2(fd, STDIN_FILENO);
+                    close(fd);
+                    j++;
+                }
+                else if (strcmp(args[j], ">") == 0 && args[j + 1] != NULL) {
+                    int fd = open(args[j + 1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                    if (fd < 0) { perror("open >"); exit(EXIT_FAILURE); }
+                    dup2(fd, STDOUT_FILENO);
+                    close(fd);
+                    j++;
+                }
+                else if (strcmp(args[j], ">>") == 0 && args[j + 1] != NULL) {
+                    int fd = open(args[j + 1], O_WRONLY | O_CREAT | O_APPEND, 0644);
+                    if (fd < 0) { perror("open >>"); exit(EXIT_FAILURE); }
+                    dup2(fd, STDOUT_FILENO);
+                    close(fd);
+                    j++;
+                }
+                else {
+                    exec_args[k++] = args[j];
+                }
+            }
+
+            exec_args[k] = NULL;
+
+            if (exec_args[0] != NULL) {
+                execvp(exec_args[0], exec_args);
+                perror(exec_args[0]);
             }
 
             exit(EXIT_FAILURE);

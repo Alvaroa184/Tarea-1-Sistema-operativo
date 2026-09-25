@@ -3,7 +3,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
-#include <fcntl.h> 
+#include <fcntl.h>
+#include <errno.h>
 
 #include "pipes.h"
 #include "jobs.h"
@@ -33,8 +34,15 @@ int main() {
         fflush(stdout);
 
         if (fgets(line, MAX_LINE, stdin) == NULL) {
-            printf("\n");
-            break;
+
+        if (errno == EINTR) {
+        clearerr(stdin);
+        revisar_hijos();
+        continue;
+        }
+
+        printf("\n");
+        break;
         }
 
         if (strcmp(line, "exit\n") == 0) {

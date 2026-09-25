@@ -19,7 +19,7 @@ void configurar_sigchld() {
 
     sa.sa_handler = manejar_sigchld;
     sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_RESTART;
+    sa.sa_flags = 0;
 
     sigaction(SIGCHLD, &sa, NULL);
 }
@@ -75,12 +75,12 @@ void revisar_hijos() {
     for (int i = 0; i < MAX_JOBS; i++) {
 
         if (jobs[i].activo && jobs[i].restantes == 0) {
-            printf("[%d] Done %s\n",
-                   jobs[i].id,
-                   jobs[i].comando);
+        printf("\r\n[%d] Done %s\n",
+           jobs[i].id,
+           jobs[i].comando);
 
-            jobs[i].activo = 0;
-        }
+        jobs[i].activo = 0;
+}
     }
 }
 

@@ -48,11 +48,12 @@ void ejecutar_pmon(int segundos){
 
     //Un arreglo para guardar el tiempo anterior de cada job//
     long ticks_anteriores[MAX_JOBS] = {0};
-
     while (pmon_terminar == 0){
-        pmon_actualizar = 0;
+    pmon_actualizar = 0;
 
-        printf("\n\n\n--- ACTUALIZACIÓN DE PROCESOS ---\n");
+    revisar_hijos();
+
+    printf("\n\n\n--- ACTUALIZACIÓN DE PROCESOS ---\n");
         printf("PID\t| COMANDO\t| ESTADO\t| %%CPU(aprox)\t| RSS(KB)\n");
 
         for (int i = 0; i < MAX_JOBS; i++){
